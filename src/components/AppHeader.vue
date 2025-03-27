@@ -115,9 +115,5 @@
 
         cursor: pointer;
     }
-    .flex {
-        /* layout */
-        display: flex;
-    }
 
 </style>
