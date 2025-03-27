@@ -1,5 +1,5 @@
 <template>
-    <div class="app-main">
+    <div class="app-body">
         <h1 class="welcome-message">我可以為你做什麼?</h1>
         <div class="app-chat-box">
             <textarea name="" id="" placeholder="詢問任何問題" class="app-chat-textarea"></textarea>
@@ -38,7 +38,7 @@
 </template>
 
 <style scoped>
-    .app-main {
+    .app-body {
         /* layout */
         display: flex;
         flex-direction: column;
