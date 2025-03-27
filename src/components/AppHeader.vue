@@ -2,13 +2,11 @@
     <div class="app-header">
         <nav class="app-nav">
             <div class="app-new-chat">
-                <span class='flex'>
-                    <button class="app-btn btn--icon">
-                        <span class="material-symbols-outlined icon">
-                        edit_square
-                        </span>
-                    </button>
-                </span>
+                <button class="app-btn btn--icon">
+                    <span class="material-symbols-outlined icon">
+                    edit_square
+                    </span>
+                </button>
             </div>
             <button class="app-btn app-model-select">
                 <div class="model-select-font-size">
@@ -19,10 +17,10 @@
                 </span>
             </button>
         </nav>
-        <nav class="app-auth">
+        <div class="app-auth">
             <button class="app-btn auth-btn btn--login">登入</button>
             <button class="app-btn auth-btn btn--logout">註冊</button>
-        </nav>
+        </div>
     </div>
     
 </template>
@@ -58,10 +56,10 @@
         padding: 0 8px;
 
         /* visual styling */
-        background-color: white;
+        background-color: var(--bg-color);
     }
     .btn--icon:hover {
-        background-color: #e3e3e3;
+        background-color: var(--hover-bg-color);
     }
     .icon {
         /* box model */
@@ -79,11 +77,11 @@
         padding: 6px 12px;
 
         /* visual styling */
-        color: #5d5d5d;
-        background-color: white;
+        color: var(--text-color);
+        background-color: var(--bg-color);
     }
     .app-model-select:hover {
-        background-color: #e3e3e3;
+        background-color: var(--hover-bg-color);
     }
     .model-select-font-size {
         /* typography */
@@ -108,14 +106,13 @@
     }
     .btn--login {
         /* visual styling */
-        background-color: #0D0D0D;
-        color: white;
+        background-color: var(--primary-color);
+        color: var(--text-white-color);
     }
     .app-btn {
         /* box model */
         border: 0;
-    }
-    .app-btn:hover {
+
         cursor: pointer;
     }
     .flex {

@@ -1,3 +1,11 @@
+:root {
+    --bg-color: #FFFFFF;
+    --hover-bg-color: #E3E3E3;
+    --primary-color: #0D0D0D;
+    --text-color: #5D5D5D;
+    --text-white-color: #FFFFFF;
+}
+
 body {
     margin: 0;
 }
