@@ -4,7 +4,7 @@
             <div class="app-new-chat">
                 <button class="app-btn btn--icon">
                     <span class="material-symbols-outlined icon">
-                    edit_square
+                        edit_square
                     </span>
                 </button>
             </div>

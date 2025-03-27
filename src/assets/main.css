@@ -4,6 +4,9 @@
     --primary-color: #0D0D0D;
     --text-color: #5D5D5D;
     --text-white-color: #FFFFFF;
+    --btn-black-color: #0D0D0D;
+    --btn-non-color: transparent;
+    --border-light: rgba(0,0,0,.1);
 }
 
 body {
