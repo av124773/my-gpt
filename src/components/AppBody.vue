@@ -2,7 +2,15 @@
     <div class="app-body">
         <h1 class="welcome-message">我可以為你做什麼?</h1>
         <div class="app-chat-box">
-            <textarea name="" id="" placeholder="詢問任何問題" class="app-chat-textarea"></textarea>
+            <textarea 
+                name="" 
+                id="" 
+                ref="chatTextarea"
+                placeholder="詢問任何問題" 
+                class="app-chat-textarea"
+                @input="adjustHeight"
+                @keyup.enter="adjustHeight"
+            ></textarea>
             <div class="btn-toolbar">
                 <div class="btn-toolbar-feature">
                     <button class="tool-btn">
@@ -37,6 +45,25 @@
     </div>
 </template>
 
+<script>
+    export default {
+        name: 'ChatBox',
+        mounted() {
+            this.adjustHeight()
+        },
+        methods: {
+            adjustHeight() {
+                const textarea = this.$refs.chatTextarea
+                textarea.style.height = 'auto'; // 重置高度
+                textarea.style.height = `${textarea.scrollHeight}px`; // 設置為內容高度
+            },
+            handleEnter(event) {
+                setTimeout(() => this.adjustHeight(), 0)
+            }
+        }
+    }
+</script>
+
 <style scoped>
     .app-body {
         /* layout */
@@ -54,13 +81,15 @@
         /* box model */
         padding: 20px;
         border-radius: 20px;
-        box-shadow: 1px 1px 1px 1px gainsboro;
+        box-shadow: 1px 1px 4px 1px gainsboro;
 
     }
     .app-chat-textarea {
         /* box model */
         border: 0;
         width: 100%;
+        max-height: 200px;
+
         resize: none;
     }
     .app-chat-textarea:focus {
