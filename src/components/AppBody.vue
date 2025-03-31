@@ -74,7 +74,7 @@
         
         /* box model */
         margin: auto;
-        height: 500px;
+        height: 50vh;
         max-width: 48rem;
     }
     .app-chat-box {
