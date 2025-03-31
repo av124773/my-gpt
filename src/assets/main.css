@@ -1,14 +1,16 @@
 :root {
-    --bg-color: #FFFFFF;
-    --hover-bg-color: #E3E3E3;
-    --primary-color: #0D0D0D;
-    --text-color: #5D5D5D;
-    --text-white-color: #FFFFFF;
-    --btn-black-color: #0D0D0D;
-    --btn-non-color: transparent;
-    --border-light: rgba(0,0,0,.1);
+    --color-bg-base: #FFFFFF; /* 基礎背景色（白色） */
+    --color-bg-hover: #E3E3E3; /* hover 效果的背景色（淺灰色） */
+    --color-primary: #0D0D0D; /* 主要顏色（深黑色，用於按鈕等） */
+    --color-text-base: #5D5D5D; /* 基礎文字顏色（中灰色） */
+    --color-text-white: #FFFFFF; /* 白色文字 */
+    --color-btn-transparent: transparent; /* 透明背景（用於按鈕） */
+    --color-border-light: rgba(0,0,0,.1); /* 淺色邊框 */
 }
 
+html,
 body {
     margin: 0;
+    padding: 0;
+    height: 100%    ;
 }

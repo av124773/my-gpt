@@ -56,10 +56,10 @@
         padding: 0 8px;
 
         /* visual styling */
-        background-color: var(--bg-color);
+        background-color: var(--color-bg-base);
     }
     .btn--icon:hover {
-        background-color: var(--hover-bg-color);
+        background-color: var(--color-bg-hover);
     }
     .icon {
         /* box model */
@@ -77,11 +77,11 @@
         padding: 6px 12px;
 
         /* visual styling */
-        color: var(--text-color);
-        background-color: var(--bg-color);
+        color: var(--color-text-base);
+        background-color: var(--color-bg-base);
     }
     .app-model-select:hover {
-        background-color: var(--hover-bg-color);
+        background-color: var(--color-bg-hover);
     }
     .model-select-font-size {
         /* typography */
@@ -106,8 +106,8 @@
     }
     .btn--login {
         /* visual styling */
-        background-color: var(--primary-color);
-        color: var(--text-white-color);
+        background-color: var(--color-primary);
+        color: var(--color-text-white);
     }
     .app-btn {
         /* box model */

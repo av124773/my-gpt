@@ -71,13 +71,18 @@
         flex-direction: column;
         justify-content: center;
         text-align: center;
+        flex: 1;
         
         /* box model */
-        margin: auto;
-        height: 50vh;
+        margin: 0 auto;
+        width: 100%;
         max-width: 48rem;
     }
     .app-chat-box {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        
         /* box model */
         padding: 20px;
         border-radius: 20px;
@@ -111,14 +116,15 @@
         gap: 4px;
 
         /* box model */
-        border: 1px solid var(--border-light);
+        border: 1px solid var(--color-border-light);
         border-radius: 20px;
         padding: 8px;
         min-width: 2rem;
 
         /* visual styling */
-        background-color: var(--btn-non-color);
+        background-color: var(--color-border-light);
 
+        /* other */
         cursor: pointer;
     }
     .voice-btn {
@@ -131,14 +137,15 @@
         padding: 8px;
 
         /* visual styling */
-        color: var(--text-white-color);
-        background-color: var(--btn-black-color);
+        color: var(--color-text-white);
+        background-color: var(--color-primary);
 
+        /* other */
         cursor: pointer;
     }
     .voice-btn .icon {
         /* visual styling */
-        color: var(--text-white-color);
+        color: var(--color-text-white);
     }
      .icon {
         font-size: 18px;
