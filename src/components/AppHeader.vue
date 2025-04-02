@@ -1,21 +1,39 @@
 <template>   
     <div class="app-header">
         <nav class="app-nav">
-            <div class="app-new-chat">
+            <!-- <div class="app-new-chat">
                 <button class="app-btn btn--icon">
                     <span class="material-symbols-outlined icon">
                         edit_square
                     </span>
                 </button>
-            </div>
-            <button class="app-btn app-model-select">
+            </div> -->
+            <!-- <button class="app-btn app-model-select">
                 <div class="model-select-font-size">
                     ChatGPT 
                 </div>
                 <span class="material-symbols-outlined">
                     arrow_drop_down
                 </span>
-            </button>
+            </button> -->
+            
+            <RouterLink to="/" class="app-new-chat">
+                <button class="app-btn btn--icon">
+                    <span class="material-symbols-outlined icon">
+                        edit_square
+                    </span>
+                </button>
+            </RouterLink>
+            <RouterLink to="/about" class="app-new-chat">
+                <button class="app-btn app-model-select">
+                    <div class="model-select-font-size">
+                        ChatGPT 
+                    </div>
+                    <span class="material-symbols-outlined">
+                        arrow_drop_down
+                    </span>
+                </button>
+            </RouterLink>
         </nav>
         <div class="app-auth">
             <button class="app-btn auth-btn btn--login">登入</button>
@@ -49,6 +67,8 @@
 
         /* box model */
         border: 0;
+
+        text-decoration: none;
     }
     .btn--icon {
         /* box model */
