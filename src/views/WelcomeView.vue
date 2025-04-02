@@ -10,7 +10,7 @@
                 class="app-chat-textarea"
                 v-model="inputMessage"
                 @input="adjustHeight"
-                @keydown.enter="handleSubmit($event)"
+                @keypress="handleSubmit($event)"
             ></textarea>
             <div class="btn-toolbar">
                 <div class="btn-toolbar-feature">
@@ -47,7 +47,7 @@
 </template>
 
 <script>
-    import { ref } from 'vue'
+    import { nextTick, ref } from 'vue'
     import { useRouter } from 'vue-router'
 
     export default {
@@ -66,21 +66,31 @@
             }
             
             const handleSubmit = (event) => {
-                if (event.shiftKey) {
-                    adjustHeight
-                }
-                else if (inputMessage.value.trim() !== '') {
-                    // 暫時模擬資料送出並清空輸入欄
-                    console.log(inputMessage.value)
-                    inputMessage.value = ''
-                    
-                    const textarea = chatTextarea.value;
-                    if (textarea) {
-                        textarea.style.height = 'auto'; // 先重置為自動
-                        textarea.style.height = `${textarea.scrollHeight}px`; // 再設為單行高度
+                // 檢查是否為 Enter 鍵（鍵碼 13）
+                if (event.key === 'Enter') {
+                    // Shift + Enter：插入換行
+                    if (event.shiftKey) {
+                        // 如果是插入換行操作，就執行輸入欄高度調整
+                        adjustHeight()
                     }
+                    // Enter：提交訊息
+                    else if (inputMessage.value.trim() !== '') {
+                        event.preventDefault(); // 阻止 Enter 的預設行為
 
-                    // route to chat view
+                        /** 這段之後會修改成提交內容相關程式碼
+                          * 目前暫時用 console.log 模擬輸出
+                          */
+                        console.log(inputMessage.value)
+                        /** */
+
+                        // 先清空輸入欄內容，等待 DOM 跟新完成後再調整輸入欄高度
+                        inputMessage.value = ''
+                        nextTick(() => {
+                            adjustHeight()
+                        })
+
+                        // router.push('/chat'); // 可選：跳轉頁面
+                    }
                 }
             }
 
