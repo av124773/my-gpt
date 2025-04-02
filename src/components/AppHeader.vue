@@ -36,8 +36,14 @@
             </RouterLink>
         </nav>
         <div class="app-auth">
-            <button class="app-btn auth-btn btn--login">登入</button>
-            <button class="app-btn auth-btn btn--logout">註冊</button>
+            <RouterLink to="/login"> 
+                <button class="app-btn auth-btn btn--login">登入</button>
+            </RouterLink>
+            <RouterLink to="/signup"> 
+                <button class="app-btn auth-btn btn--signup">註冊</button>
+            </RouterLink>
+            
+            
         </div>
     </div>
     
