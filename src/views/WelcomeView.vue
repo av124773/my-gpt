@@ -10,7 +10,7 @@
                 class="app-chat-textarea"
                 v-model="inputMessage"
                 @input="adjustHeight"
-                @keypress="handleSubmit($event)"
+                @keydown="handleSubmit($event)"
             ></textarea>
             <div class="btn-toolbar">
                 <div class="btn-toolbar-feature">
