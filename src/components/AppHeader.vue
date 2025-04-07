@@ -1,22 +1,6 @@
 <template>   
     <div class="app-header">
-        <nav class="app-nav">
-            <!-- <div class="app-new-chat">
-                <button class="app-btn btn--icon">
-                    <span class="material-symbols-outlined icon">
-                        edit_square
-                    </span>
-                </button>
-            </div> -->
-            <!-- <button class="app-btn app-model-select">
-                <div class="model-select-font-size">
-                    ChatGPT 
-                </div>
-                <span class="material-symbols-outlined">
-                    arrow_drop_down
-                </span>
-            </button> -->
-            
+        <nav class="app-nav">            
             <RouterLink to="/" class="app-new-chat">
                 <button class="app-btn btn--icon">
                     <span class="material-symbols-outlined icon">
