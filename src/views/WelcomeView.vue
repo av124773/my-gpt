@@ -9,6 +9,7 @@
 <script>
     import { useRouter } from 'vue-router'
     import AppChatBox from '@/components/AppChatBox.vue'
+    import { useChatStore } from '@/store/chat'
 
     export default {
         name: 'WelcomeView',
@@ -17,9 +18,12 @@
         },
         setup() {
             const router = useRouter()
+            const chatStore = useChatStore()
             
             const handleMessageSubmit = (message) => {
-                console.log(message)
+                chatStore.sendMessage(message)
+                chatStore.sendMockResponses()
+                router.push('/chat')
             }
 
             return {
