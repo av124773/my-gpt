@@ -6,30 +6,18 @@
     </div>
 </template>
 
-<script>
-    import { useRouter } from 'vue-router'
+<script setup>
+    import { useRouter } from 'vue-router';
     import AppChatBox from '@/components/AppChatBox.vue'
     import { useChatStore } from '@/store/chat'
 
-    export default {
-        name: 'WelcomeView',
-        components: {
-            AppChatBox
-        },
-        setup() {
-            const router = useRouter()
-            const chatStore = useChatStore()
-            
-            const handleMessageSubmit = (message) => {
-                chatStore.sendMessage(message)
-                chatStore.sendMockResponses()
-                router.push('/chat')
-            }
+    const router = useRouter()
+    const chatStore = useChatStore()
 
-            return {
-                handleMessageSubmit
-            }
-        },
+    const handleMessageSubmit = (message) => {
+        chatStore.sendMessage(message)
+        chatStore.sendMockResponses()
+        router.push('/chat')
     }
 </script>
 
