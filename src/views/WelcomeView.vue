@@ -8,8 +8,8 @@
 
 <script setup>
     import { useRouter } from 'vue-router';
-    import AppChatBox from '@/components/AppChatBox.vue'
     import { useChatStore } from '@/store/chat'
+    import AppChatBox from '@/components/AppChatBox.vue'
 
     const router = useRouter()
     const chatStore = useChatStore()
@@ -34,5 +34,6 @@
         margin: 0 auto;
         width: 100%;
         max-width: 48rem;
+        min-height: 100%;
     }
 </style>
