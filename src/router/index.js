@@ -20,6 +20,15 @@ const routes = [
         path: '/chat',
         name: 'Chat',
         component: () => import('@/views/ChatView.vue')
+    },
+    {
+        path: '/404',
+        name: 'NotFound',
+        component: () => import('@/views/NotFoundView.vue')
+    },
+    {
+        path: '/:pathMatch(.*)*',
+        redirect: '/404'
     }
 ]
 
