@@ -45,16 +45,14 @@
 
 <script setup>
     import { nextTick, ref } from 'vue';
+    import { adjustTextareaHeight } from '@/composables/useChatBox';
+
     const emit = defineEmits(['submit-message'])
     const inputMessage = ref('')
     const chatTextarea = ref(null)
 
     const adjustHeight = () => {
-        const textarea = chatTextarea.value
-        if (textarea) {
-            textarea.style.height = 'auto'; // 重置高度
-            textarea.style.height = `${textarea.scrollHeight}px`; // 設置為內容高度
-        }
+        adjustTextareaHeight(chatTextarea.value)
     }
 
     const handleSubmit = (event) => {

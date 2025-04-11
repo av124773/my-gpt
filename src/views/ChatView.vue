@@ -11,20 +11,18 @@
 
 <script setup>
     import { nextTick, watch } from 'vue';
-    import { useChatStore } from '@/store/chat'
+    import { useChat } from '@/composables/useChat';
     import AppChatBox from '@/components/AppChatBox.vue';
     import AppMessageList from '@/components/AppMessageList.vue';
 
-    const chatStore = useChatStore()
+    const { messages,  submitMessage } = useChat()
 
-    const handleMessageSubmit = (message) => {
-        chatStore.sendMessage(message)
-        chatStore.sendMockResponses()
-        console.log(chatStore.messages)
+    const handleMessageSubmit = (useMessage) => {
+        submitMessage(useMessage)        
     }
 
     watch(
-        () => chatStore.messages,
+        () => messages,
         () => {
             nextTick(() => {
                 const mainContent = document.querySelector('.main-content')

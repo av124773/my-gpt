@@ -8,15 +8,14 @@
 
 <script setup>
     import { useRouter } from 'vue-router';
-    import { useChatStore } from '@/store/chat'
+    import { useChat } from '@/composables/useChat'
     import AppChatBox from '@/components/AppChatBox.vue'
 
     const router = useRouter()
-    const chatStore = useChatStore()
+    const { submitMessage } = useChat()
 
     const handleMessageSubmit = (message) => {
-        chatStore.sendMessage(message)
-        chatStore.sendMockResponses()
+        submitMessage(message)
         router.push('/chat')
     }
 </script>
