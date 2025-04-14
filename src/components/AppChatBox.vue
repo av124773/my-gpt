@@ -45,8 +45,9 @@
 
 <script setup>
     import { nextTick, ref } from 'vue';
-    import { adjustTextareaHeight } from '@/composables/useChatBox';
+    import { useChatBox } from '@/composables/useChatBox'
 
+    const { adjustTextareaHeight } = useChatBox()
     const emit = defineEmits(['submit-message'])
     const inputMessage = ref('')
     const chatTextarea = ref(null)
