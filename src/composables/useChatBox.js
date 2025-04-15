@@ -5,6 +5,7 @@ export function useChatBox() {
             textarea.style.height = `${textarea.scrollHeight}px`; // 設置為內容高度
         }
     }
+    
     return {
         adjustTextareaHeight
     }

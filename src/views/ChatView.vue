@@ -10,29 +10,19 @@
 </template>
 
 <script setup>
-    import { nextTick, watch } from 'vue';
     import { useChat } from '@/composables/useChat';
     import AppChatBox from '@/components/AppChatBox.vue';
     import AppMessageList from '@/components/AppMessageList.vue';
 
-    const { messages,  submitMessage } = useChat()
+    const { submitMessage, autoScrollMainContent } = useChat()
 
     const handleMessageSubmit = (useMessage) => {
-        submitMessage(useMessage)        
+        submitMessage(useMessage)
     }
 
-    watch(
-        () => messages,
-        () => {
-            nextTick(() => {
-                const mainContent = document.querySelector('.main-content')
-                if (mainContent) {
-                    mainContent.scrollTop = mainContent.scrollHeight
-                }
-            })
-        },
-        { deep: true }
-    )
+    // Vue 的 watch() 自身會回傳一個 stopWatch 函式，
+    // 這個函式可以用來停止監聽器的運行。
+    const stopWatch = autoScrollMainContent()
 </script>
 
 <style>
