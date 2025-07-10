@@ -1,0 +1,263 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template for a Vue.js static website hosted on S3 and served via CloudFront with OAC and custom domain.
+
+# --- Parameters ---
+# 參數區塊，用於定義可變的輸入值
+Parameters:
+  ProjectName:
+    Type: String
+    Description: A unique name for your project, used as a prefix for resources.
+    Default: mygptfrontend # 建議使用您的專案名稱，方便識別
+
+  DomainName:
+    Type: String
+    Description: The root domain name for your website (e.g., straycatl.com).
+    Default: straycatl.com # 您的自訂網域
+
+  HostedZoneId:
+    Type: String
+    Description: The Route 53 Hosted Zone ID for your domain (e.g., Z0123456789ABCDEF).
+    # 您在 Route 53 中為 straycatl.com 建立的託管區域 ID
+    # 務必替換為您實際的 Hosted Zone ID
+    ConstraintDescription: Must be a valid Route 53 Hosted Zone ID for your domain. # <--- 修正
+
+  AcmCertificateArn:
+    Type: String
+    Description: The ARN of your AWS Certificate Manager (ACM) SSL/TLS certificate for your domain.
+    # 此憑證必須在 us-east-1 (N. Virginia) 區域申請，即使您的 CloudFront 部屬在其他區域。
+    # 範例: arn:aws:acm:us-east-1:123456789012:certificate/abcdef-1234-5678-90ab-cdef12345678
+    ConstraintDescription: Must be a valid ACM Certificate ARN issued in us-east-1 region for your domain. # <--- 修正
+
+# --- Resources ---
+# 資源區塊，定義所有要建立的 AWS 服務和組件
+
+Resources:
+
+  # 1. S3 Bucket for Website Content (根域名內容)
+  # 這個 S3 儲存桶將存放您 Vue.js 應用程式的所有靜態檔案
+  RootBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      # 為了確保桶名全球唯一且可識別，建議結合 ProjectName 和 AWS::AccountId
+      BucketName: !Sub "${ProjectName}-${AWS::AccountId}-root-content"
+      # 啟用靜態網站託管功能
+      WebsiteConfiguration:
+        IndexDocument: index.html # 網站的預設首頁
+        ErrorDocument: index.html # 對於 SPA (如 Vue.js)，通常將所有錯誤導向 index.html 讓前端路由器處理
+      # 透過 PublicAccessBlockConfiguration 完全阻止公共訪問，因為權限將由 OAC 控制
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: Development
+        - Key: Layer
+          Value: Frontend
+
+  # 2. CloudFront Origin Access Control (OAC)
+  # OAC 是 CloudFront 訪問私有 S3 儲存桶的推薦安全機制
+  CloudFrontOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${ProjectName}-OAC"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always # 總是簽署請求
+        SigningProtocol: sigv4 # 使用 SigV4 簽署協議
+
+  # 3. S3 Bucket Policy (用於限制 S3 桶只能被 CloudFront OAC 訪問)
+  # 這個策略將確保只有特定的 CloudFront 分配能從 RootBucket 讀取內容
+  RootBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref RootBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipalReadOnly
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com # <--- 修正這裡，Principal 回歸服務主體
+            Action: 's3:GetObject'
+            Resource: !Join ['', ['arn:aws:s3:::', !Ref RootBucket, '/*']]
+            Condition:
+              StringEquals:
+                # CloudFront Distribution 的 ARN 會是 arn:aws:cloudfront::ACCOUNT_ID:distribution/DISTRIBUTION_ID
+                'AWS:SourceArn': !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}" # <--- 維持這個條件
+
+  # 4. S3 Bucket for WWW Redirection (可選：如果需要將 www.yourdomain.com 重定向到 yourdomain.com)
+  # 這個桶的內容會是空的，只用於重定向
+  WWWBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-${AWS::AccountId}-www-redirect"
+      WebsiteConfiguration:
+        RedirectAllRequestsTo:
+          HostName: !Ref DomainName # 重定向到您的根域名
+          Protocol: https # 確保重定向後使用 HTTPS
+      # 重定向桶需要公開讀取權限才能作為網站端點工作
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: Development
+        - Key: Layer
+          Value: Redirect
+
+  # 5. CloudFront Distribution (CDN 加速與 HTTPS)
+  # CloudFront 將作為您的網站入口，提供全球加速和 HTTPS
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub "CloudFront distribution for ${DomainName}"
+        Aliases: # 綁定自訂網域
+          - !Ref DomainName
+          - !Sub "www.${DomainName}"
+        # 配置 Viewer Certificate (SSL/TLS)
+        ViewerCertificate:
+          AcmCertificateArn: !Ref AcmCertificateArn # 引用 ACM 憑證 ARN
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021 # 建議的最低 TLS 版本
+        Origins: # 定義源站 (您的 S3 網站內容桶)
+          - Id: S3Origin
+            DomainName: !GetAtt RootBucket.RegionalDomainName # 使用 S3 區域域名作為源站
+            S3OriginConfig: {} # <--- 修正：將 S3OriginConfig 加回去
+            # 引用 OAC，將其與此源站關聯
+            OriginAccessControlId: !GetAtt CloudFrontOriginAccessControl.Id # <--- 修正
+            OriginPath: '' # 如果你的網站內容在 S3 桶的子資料夾，可以在這裡指定，例如 /web
+        DefaultCacheBehavior: # 預設的緩存行為
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https # 強制將所有 HTTP 請求重定向到 HTTPS
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD, OPTIONS]
+          Compress: true # 啟用內容壓縮
+          ForwardedValues:
+            QueryString: true
+            Headers:
+              - Origin
+            Cookies:
+              Forward: none
+        CustomErrorResponses: # 自定義錯誤頁面，對於 SPA 很重要
+          - ErrorCachingMinTTL: 300
+            ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCachingMinTTL: 300
+            ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: Development
+        - Key: Service
+          Value: CDN
+
+  # 6. Route 53 A Record Set Group (將網域指向 CloudFront)
+  # 這個資源將為您的根域名和 www 子域名建立 DNS 記錄
+  WebsiteRecordSetGroup:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref HostedZoneId # 引用您的 Route 53 託管區域 ID
+      RecordSets:
+        # A 記錄用於根域名 (straycatl.com)
+        - Name: !Ref DomainName
+          Type: A
+          AliasTarget:
+            HostedZoneId: Z2FDTNDATAQYW2 # CloudFront 的固定 Hosted Zone ID (對所有區域都一樣) [cite: 2881]
+            DNSName: !GetAtt CloudFrontDistribution.DomainName # CloudFront 分配的域名
+            EvaluateTargetHealth: true
+        # A 記錄用於 www 子域名 (www.straycatl.com)，並將其指向 S3 重定向桶
+        - Name: !Sub "www.${DomainName}"
+          Type: A
+          AliasTarget:
+            # 獲取 WWWBucket 的網站託管 Hosted Zone ID
+            # [cite_start]Mappings 中的 Hosted Zone ID 來自 S3 靜態網站端點的固定值 [cite: 2887, 2888, 2889]
+            HostedZoneId: !FindInMap
+              - RegionMap
+              - !Ref "AWS::Region"
+              - S3HostedZoneID
+            DNSName: !GetAtt WWWBucket.WebsiteURL # WWWBucket 的網站託管 URL
+            EvaluateTargetHealth: true
+
+# --- Mappings ---
+# Mappings 區塊，提供不同區域的 S3 網站託管 Hosted Zone ID
+# 這是為了 Route 53 Alias Record 能夠正確指向 S3 重定向桶
+Mappings:
+  RegionMap:
+    us-east-1:
+      S3HostedZoneID: Z3AQBSTGFYJSTF
+      websiteendpoint: s3-website-us-east-1.amazonaws.com
+    us-west-1:
+      S3HostedZoneID: Z2F56UZL2M1ACD
+      websiteendpoint: s3-website-us-west-1.amazonaws.com
+    us-west-2:
+      S3HostedZoneID: Z3BJ6K6RIION7M
+      websiteendpoint: s3-website-us-west-2.amazonaws.com
+    eu-west-1:
+      S3HostedZoneID: Z1BKCTXD74EZPE
+      websiteendpoint: s3-website-eu-west-1.amazonaws.com
+    ap-southeast-1:
+      S3HostedZoneID: Z3O0J2DXBE1FTB
+      websiteendpoint: s3-website-ap-southeast-1.amazonaws.com
+    ap-southeast-2:
+      S3HostedZoneID: Z1WCIGYICN2BYD
+      websiteendpoint: s3-website-ap-southeast-2.amazonaws.com
+    ap-northeast-1: # 東京區域
+      S3HostedZoneID: Z2M4EHUR26P7ZW
+      websiteendpoint: s3-website-ap-northeast-1.amazonaws.com
+    sa-east-1:
+      S3HostedZoneID: Z31GFT0UA1I2HV
+      websiteendpoint: s3-website-sa-east-1.amazonaws.com
+
+# --- Outputs ---
+# 輸出區塊，顯示部署完成後的重要資訊
+Outputs:
+  RootBucketName:
+    Description: Name of the S3 bucket hosting the main website content.
+    Value: !Ref RootBucket
+    Export:
+      Name: !Sub "${ProjectName}-RootBucketName"
+
+  RootWebsiteURL:
+    Description: The S3 static website endpoint URL for the main content bucket. (Direct S3 endpoint, usually accessed via CloudFront)
+    Value: !GetAtt RootBucket.WebsiteURL
+    Export:
+      Name: !Sub "${ProjectName}-RootWebsiteURL"
+
+  WWWBucketName:
+    Description: Name of the S3 bucket configured for www redirection.
+    Value: !Ref WWWBucket
+    Export:
+      Name: !Sub "${ProjectName}-WWWBucketName"
+
+  CloudFrontDistributionID:
+    Description: The ID of the CloudFront distribution.
+    Value: !Ref CloudFrontDistribution
+    Export:
+      Name: !Sub "${ProjectName}-CloudFrontDistributionID"
+
+  CloudFrontDomainName:
+    Description: The domain name of the CloudFront distribution (Use this with your custom domain).
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub "${ProjectName}-CloudFrontDomainName"
+
+  WebsiteURL:
+    Description: Your website URL accessible via CloudFront and custom domain.
+    # 使用 CloudFront 的域名來構成最終的網站 URL
+    Value: !Sub "https://${CloudFrontDistribution.DomainName}"
+    Export:
+      Name: !Sub "${ProjectName}-FinalWebsiteURL"
