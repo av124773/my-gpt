@@ -1,0 +1,133 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  CloudFormation template for setting up IAM OIDC Provider and Role for GitHub Actions.
+  This allows GitHub Actions workflows to securely assume an AWS IAM role without
+  needing long-lived AWS credentials stored in GitHub.
+
+Parameters:
+  GitHubOrganization:
+    Type: String
+    Description: Your GitHub organization name (e.g., 'my-org').
+    ConstraintDescription: Must be your GitHub organization name.
+  GitHubRepository:
+    Type: String
+    Description: Your GitHub repository name (e.g., 'my-frontend-app'). Use '*' for all repositories in the organization.
+    Default: '*' # Default to all repositories within the organization
+    ConstraintDescription: Must be your GitHub repository name or '*'.
+  EnvironmentName:
+    Type: String
+    Description: The environment this role is for (e.g., 'dev', 'prod', 'staging').
+    Default: 'all'
+    ConstraintDescription: Helps to scope the role name and condition for specific environments.
+  # Note: Thumbprints need to be manually updated periodically.
+  # You can find the latest thumbprints by running:
+  # openssl s_client -servername token.actions.githubusercontent.com -showcerts -connect token.actions.githubusercontent.com:443 < /dev/null | openssl x509 -fingerprint -noout
+  # As of early 2024, common ones are provided, but always verify!
+  GitHubThumbprint1:
+    Type: String
+    Description: First required thumbprint for GitHub OIDC provider.
+    Default: "a031c46782e0e6c662c2c87c76da9e1967efefd3" # Example, check latest from GitHub
+  GitHubThumbprint2:
+    Type: String
+    Description: Second required thumbprint for GitHub OIDC provider.
+    Default: "6938fd4ebfatf067304625ddf79c4ee61974765f" # Example, check latest from GitHub
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "GitHub Configuration"
+        Parameters:
+          - GitHubOrganization
+          - GitHubRepository
+          - EnvironmentName
+      - Label:
+          default: "OIDC Thumbprints (Verify Latest)"
+        Parameters:
+          - GitHubThumbprint1
+          - GitHubThumbprint2
+    ParameterLabels:
+      GitHubOrganization:
+        default: "GitHub 組織名稱"
+      GitHubRepository:
+        default: "GitHub 儲存庫名稱 (或 '*') "
+      EnvironmentName:
+        default: "環境名稱 (用於角色命名與條件限制)"
+      GitHubThumbprint1:
+        default: "GitHub OIDC 指紋 #1"
+      GitHubThumbprint2:
+        default: "GitHub OIDC 指紋 #2"
+
+Resources:
+  # 1. IAM OpenID Connect 提供者 (OIDC Provider)
+  # 這是 AWS 信任 GitHub 作為身份提供者的橋樑。
+  GitHubOIDCProvider:
+    Type: AWS::IAM::OpenIDConnectProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com # GitHub Actions 呼叫 AWS STS 時使用的 Client ID
+      ThumbprintList:
+        # 指紋是確保 OIDC 憑證有效性的關鍵。
+        # GitHub 會定期輪換這些指紋，務必定期檢查並更新。
+        - !Ref GitHubThumbprint1
+        - !Ref GitHubThumbprint2
+    Metadata:
+      # AWS::CloudFormation::Designer 的協助資訊，便於視覺化
+      AWS::CloudFormation::Designer:
+        id: GitHubOIDCProvider
+
+  # 2. IAM 角色 (Role) - 允許 GitHub Actions 承擔此角色
+  # 此角色定義了 GitHub Actions 工作流程被允許在 AWS 中執行哪些操作。
+  GitHubActionsDeploymentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "GitHubActions-${GitHubOrganization}-${GitHubRepository}-${EnvironmentName}-DeploymentRole"
+      Description: !Sub "IAM Role for GitHub Actions to deploy ${GitHubOrganization}/${GitHubRepository} to ${EnvironmentName} environment."
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !GetAtt GitHubOIDCProvider.Arn # 引用上面建立的 OIDC 提供者 ARN
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                # OIDC 令牌的受眾，對於 AWS STS 來說是固定的。
+                token.actions.githubusercontent.com:aud: "sts.amazonaws.com"
+              StringLike:
+                # 這是最關鍵的安全限制！
+                # 確保只有來自指定 GitHub 組織和儲存庫的工作流程才能承擔此角色。
+                # `repo:<組織名稱>/<儲存庫名稱>:`
+                # 使用 `*` 作為儲存庫或分支的萬用字元。
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubOrganization}/${GitHubRepository}:*"
+      # 您可以在此處附加託管策略 (Managed Policies) 或內聯策略 (Inline Policies)。
+      # 最佳實踐：根據最小權限原則，只賦予完成部署所需的最小權限。
+      ManagedPolicyArns:
+        # 範例：允許 S3 靜態網站部署所需的權限。
+        # 請根據您的實際部署需求添加或修改這些策略。
+        # 如果您使用 CodeDeploy, 可能需要 CodeDeployDeployerAccess。
+        # 如果涉及 Lambda, 可能需要 AWSLambda_FullAccess (或更細緻的)。
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess # 範例：S3 完整存取 (用於部署靜態網站)
+        - arn:aws:iam::aws:policy/CloudFrontFullAccess # 範例：CloudFront 完整存取 (用於失效快取)
+        # 更多常見的：
+        # - arn:aws:iam::aws:policy/AWSCodeDeployDeployerAccess
+        # - arn:aws:iam::aws:policy/AWSLambda_FullAccess
+        # - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+        # - arn:aws:iam::aws:policy/AmazonSQSFullAccess
+    Metadata:
+      AWS::CloudFormation::Designer:
+        id: GitHubActionsDeploymentRole
+
+Outputs:
+  GitHubOIDCProviderArn:
+    Description: The ARN of the IAM OIDC Provider.
+    Value: !GetAtt GitHubOIDCProvider.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-GitHubOIDCProviderArn"
+
+  GitHubActionsRoleArn:
+    Description: The ARN of the IAM Role for GitHub Actions to assume.
+    Value: !GetAtt GitHubActionsDeploymentRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-GitHubActionsRoleArn"

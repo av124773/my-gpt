@@ -11,7 +11,7 @@ Parameters:
 
   DomainName:
     Type: String
-    Description: The root domain name for your website (e.g., straycatl.com).
+    Description: The root domain name for your website (e.g., straycatl.com for prod, or test.straycatl.com for test).
     Default: straycatl.com # 您的自訂網域
 
   HostedZoneId:
@@ -27,19 +27,31 @@ Parameters:
     # 此憑證必須在 us-east-1 (N. Virginia) 區域申請，即使您的 CloudFront 部屬在其他區域。
     # 範例: arn:aws:acm:us-east-1:123456789012:certificate/abcdef-1234-5678-90ab-cdef12345678
     ConstraintDescription: Must be a valid ACM Certificate ARN issued in us-east-1 region for your domain. # <--- 修正
-
+  
+  Environment:
+    Type: String
+    Description: Deployment environment (prod and test)
+    Default: prod
+    AllowedValues:
+      - prod
+      - test
 # --- Resources ---
 # 資源區塊，定義所有要建立的 AWS 服務和組件
 
-Resources:
+Conditions:
+  IsProduction: !Equals [!Ref Environment, 'prod']
 
+Resources:
   # 1. S3 Bucket for Website Content (根域名內容)
   # 這個 S3 儲存桶將存放您 Vue.js 應用程式的所有靜態檔案
   RootBucket:
     Type: AWS::S3::Bucket
     Properties:
       # 為了確保桶名全球唯一且可識別，建議結合 ProjectName 和 AWS::AccountId
-      BucketName: !Sub "${ProjectName}-${AWS::AccountId}-root-content"
+      BucketName: !If
+        - IsProduction 
+        - !Sub "${ProjectName}-${AWS::AccountId}-root-content"
+        - !Sub "${ProjectName}-${AWS::AccountId}-test-content"
       # 啟用靜態網站託管功能
       WebsiteConfiguration:
         IndexDocument: index.html # 網站的預設首頁
@@ -93,6 +105,7 @@ Resources:
   # 這個桶的內容會是空的，只用於重定向
   WWWBucket:
     Type: AWS::S3::Bucket
+    Condition: IsProduction
     Properties:
       BucketName: !Sub "${ProjectName}-${AWS::AccountId}-www-redirect"
       WebsiteConfiguration:
@@ -121,9 +134,10 @@ Resources:
       DistributionConfig:
         Enabled: true
         Comment: !Sub "CloudFront distribution for ${DomainName}"
-        Aliases: # 綁定自訂網域
-          - !Ref DomainName
-          - !Sub "www.${DomainName}"
+        Aliases: !If # 綁定自訂網域
+          - IsProduction
+          - [!Ref DomainName, !Sub "www.${DomainName}"]
+          - [!Ref DomainName]
         # 配置 Viewer Certificate (SSL/TLS)
         ViewerCertificate:
           AcmCertificateArn: !Ref AcmCertificateArn # 引用 ACM 憑證 ARN
@@ -179,18 +193,21 @@ Resources:
             HostedZoneId: Z2FDTNDATAQYW2 # CloudFront 的固定 Hosted Zone ID (對所有區域都一樣) [cite: 2881]
             DNSName: !GetAtt CloudFrontDistribution.DomainName # CloudFront 分配的域名
             EvaluateTargetHealth: true
-        # A 記錄用於 www 子域名 (www.straycatl.com)，並將其指向 S3 重定向桶
-        - Name: !Sub "www.${DomainName}"
-          Type: A
-          AliasTarget:
-            # 獲取 WWWBucket 的網站託管 Hosted Zone ID
-            # [cite_start]Mappings 中的 Hosted Zone ID 來自 S3 靜態網站端點的固定值 [cite: 2887, 2888, 2889]
-            HostedZoneId: !FindInMap
-              - RegionMap
-              - !Ref "AWS::Region"
-              - S3HostedZoneID
-            DNSName: !GetAtt WWWBucket.WebsiteURL # WWWBucket 的網站託管 URL
-            EvaluateTargetHealth: true
+        - !If
+          - IsProduction
+          # A 記錄用於 www 子域名 (www.straycatl.com)，並將其指向 S3 重定向桶
+          - Name: !Sub "www.${DomainName}"
+            Type: A
+            AliasTarget:
+              # 獲取 WWWBucket 的網站託管 Hosted Zone ID
+              # [cite_start]Mappings 中的 Hosted Zone ID 來自 S3 靜態網站端點的固定值 [cite: 2887, 2888, 2889]
+              HostedZoneId: !FindInMap
+                - RegionMap
+                - !Ref "AWS::Region"
+                - S3HostedZoneID
+              DNSName: !GetAtt WWWBucket.WebsiteURL # WWWBucket 的網站託管 URL
+              EvaluateTargetHealth: true
+          - !Ref AWS::NoValue
 
 # --- Mappings ---
 # Mappings 區塊，提供不同區域的 S3 網站託管 Hosted Zone ID
