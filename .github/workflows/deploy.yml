@@ -1,0 +1,173 @@
+# =================================================================
+# GitHub Actions Workflow for Vue.js SPA Deployment to AWS
+# =================================================================
+# 此 Workflow 會在 main 分支有 push 時觸發，自動建置 Vue.js 應用程式
+# 並部署到 AWS S3，同時清除 CloudFront 快取
+
+name: Deploy Vue.js App to AWS
+
+# 觸發條件：當 main 分支有 push 時自動執行
+on:
+  push:
+    branches: [main]
+  # 也可以手動觸發 workflow
+  workflow_dispatch:
+
+# 設定環境變數，方便統一管理
+env:
+  # 從你的 CloudFormation 範本中獲取這些值
+  AWS_REGION: us-east-1        # 請根據你的 AWS 區域調整
+  PROJECT_NAME: mygptfrontend  # 與 CloudFormation 中的 ProjectName 參數一致
+  STACK_NAME: StrayCatLFrontendStack
+  DOMAIN_NAME: straycatl.com   # 你的網域名稱
+  NODE_VERSION: '18'           # Node.js 版本，建議使用 LTS 版本
+
+# 定義工作流程
+jobs:
+  # =================================================================
+  # 工作 1: 建置和部署到 AWS
+  # =================================================================
+  deploy:
+    name: Build and Deploy to AWS
+    runs-on: ubuntu-latest
+    
+    # 設定 OIDC 權限，這是使用 AWS OIDC 的關鍵設定
+    # 位置二
+    permissions:
+      id-token: write   # 允許 GitHub Actions 建立 OIDC token
+      contents: read    # 允許讀取 repository 內容
+    
+    steps:
+      # -----------------------------------------------------------------
+      # 步驟 1: 檢出代碼
+      # -----------------------------------------------------------------
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 獲取完整的 git 歷史，有助於某些建置工具
+      
+      # -----------------------------------------------------------------
+      # 步驟 2: 設定 Node.js 環境
+      # -----------------------------------------------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'  # 快取 npm 套件，加速建置
+      
+      # -----------------------------------------------------------------
+      # 步驟 3: 安裝依賴套件
+      # -----------------------------------------------------------------
+      - name: Install Dependencies
+        run: |
+          npm ci  # 使用 npm ci 而非 npm install，更適合 CI/CD 環境
+      
+      # -----------------------------------------------------------------
+      # 步驟 4: 執行測試 (可選)
+      # -----------------------------------------------------------------
+      - name: Run Tests
+        run: |
+          # 如果你有測試，請取消註解以下行
+          # npm run test:unit
+          echo "Tests would run here"
+      
+      # -----------------------------------------------------------------
+      # 步驟 5: 建置 Vue.js 應用程式
+      # -----------------------------------------------------------------
+      - name: Build Vue.js Application
+        run: |
+          npm run build
+        env:
+          # 如果你的 Vue.js 應用程式需要特定的環境變數，在這裡設定
+          NODE_ENV: production
+          # VUE_APP_API_URL: ${{ secrets.VUE_APP_API_URL }}
+      
+      # -----------------------------------------------------------------
+      # 步驟 6: 配置 AWS 憑證 (使用 OIDC)
+      # -----------------------------------------------------------------
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # 使用 OIDC 而非傳統的 access key
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          # 設定 session 名稱，有助於 CloudTrail 追蹤
+          role-session-name: GitHubActions-${{ github.run_number }}
+      
+      # -----------------------------------------------------------------
+      # 步驟 7: 同步檔案到 S3 儲存桶
+      # -----------------------------------------------------------------
+      - name: Deploy to S3
+        run: |
+          # 構建 S3 儲存桶名稱（與 CloudFormation 範本一致）
+          BUCKET_NAME="${{ env.PROJECT_NAME }}-${{ secrets.AWS_ACCOUNT_ID }}-root-content"
+          
+          echo "Deploying to S3 bucket: $BUCKET_NAME"
+          
+          # 同步建置後的檔案到 S3
+          aws s3 sync dist/ s3://$BUCKET_NAME/ \
+            --delete \
+            --exact-timestamps \
+            --cache-control "public,max-age=31536000" \
+            --metadata-directive REPLACE
+          
+          # 為 HTML 檔案設定不同的快取策略
+          aws s3 cp dist/index.html s3://$BUCKET_NAME/index.html \
+            --cache-control "public,max-age=0,must-revalidate" \
+            --metadata-directive REPLACE
+          
+          echo "✅ Files uploaded to S3 successfully"
+      
+      # -----------------------------------------------------------------
+      # 步驟 8: 清除 CloudFront 快取
+      # -----------------------------------------------------------------
+      - name: Invalidate CloudFront Cache
+        run: |
+          # 獲取 CloudFront Distribution ID
+          DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionID'].OutputValue" \
+            --output text)
+          
+          if [ -z "$DISTRIBUTION_ID" ]; then
+            echo "❌ Could not find CloudFront Distribution ID"
+            exit 1
+          fi
+          
+          echo "Invalidating CloudFront Distribution: $DISTRIBUTION_ID"
+          
+          # 建立 CloudFront 快取失效請求
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id $DISTRIBUTION_ID \
+            --paths "/*" \
+            --query "Invalidation.Id" \
+            --output text)
+          
+          echo "✅ CloudFront invalidation created: $INVALIDATION_ID"
+          
+          # 等待快取失效完成 (可選)
+          echo "⏳ Waiting for invalidation to complete..."
+          aws cloudfront wait invalidation-completed \
+            --distribution-id $DISTRIBUTION_ID \
+            --id $INVALIDATION_ID
+          
+          echo "✅ CloudFront cache invalidation completed"
+      
+      # -----------------------------------------------------------------
+      # 步驟 9: 部署成功通知
+      # -----------------------------------------------------------------
+      - name: Deployment Success Notification
+        run: |
+          echo "🎉 Deployment completed successfully!"
+          echo "🌐 Your website is now live at: https://${{ env.DOMAIN_NAME }}"
+          echo "📊 GitHub Actions Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      
+      # -----------------------------------------------------------------
+      # 步驟 10: 部署失敗處理 (只在失敗時執行)
+      # -----------------------------------------------------------------
+      - name: Deployment Failure Notification
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo "🔍 Please check the logs above for details"
+          echo "📊 GitHub Actions Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
